@@ -23,6 +23,7 @@ namespace SharpCloud
             ignored_users.Add("DefaultAccount");
             ignored_users.Add("WDAGUtilityAccount");
             ignored_users.Add("Guest");
+            ignored_users.Add("Administrator");
 
             SelectQuery sQuery = new SelectQuery("Win32_UserAccount");
 
@@ -57,16 +58,39 @@ namespace SharpCloud
             {
                 Console.WriteLine(Environment.NewLine + $"[*] Found {filename}:");
                 string fileContents = File.ReadAllText(filename);
-                Console.WriteLine(Environment.NewLine + Convert.ToString(fileContents));
+                if (filename.Contains(".db")) {
+                    //string cleaned = fileContents.Substring(fileContents.IndexOf("CREATE TABLE"));
+                    //Console.WriteLine(Environment.NewLine + Convert.ToString(cleaned));
+                    Console.WriteLine("L.. You will want to copy this file.");
+                } else
+                {
+                    Console.WriteLine(Environment.NewLine + Convert.ToString(fileContents));
+                }
             }
+        }
+
+
+        static Boolean CheckCommand(string command, string path)
+        {
+            Boolean commandExists = false;
+            if (path.Contains(command))
+            {
+                commandExists = true;
+            }
+            return commandExists;
         }
 
 
         static void Main(string[] args)
         {
+            // CLI commands
+            string azureCLI = @"Azure\CLI2";
+            string computeCLI = @"google-cloud-sdk";
+            string awsCLI = @"AWSCLI";
+
             // Get the current user and all usernames
             string currentUser = Environment.UserName;
-            Console.WriteLine($"[+] Operating in the context of the {currentUser} user.");
+            Console.WriteLine($"[+] Operating in the context of the '{currentUser}' user.");
 
             if (IsAdministrator())
             {
@@ -76,8 +100,30 @@ namespace SharpCloud
                 Console.WriteLine("[!] Current user is NOT an Administrator! Cloud files for other users may not be returned.");
             }
 
-            List<string> allUsers = GetUsers();
+            string userPath = Environment.GetEnvironmentVariable("PATH");
+            Boolean awsExists = CheckCommand(awsCLI, userPath);
+            Boolean computeExists = CheckCommand(computeCLI, userPath);
+            Boolean azureExists = CheckCommand(azureCLI, userPath);
 
+            Console.Write(Environment.NewLine);
+            if (awsExists)
+            {
+                Console.WriteLine("[+] AWSCLI exists in the current user's PATH. You should be able to use 'aws' commands.");
+            }
+
+            if (computeExists)
+            {
+                Console.WriteLine("[+] Google Compute SDK exists in the current user's PATH. You should be able to use 'gcloud' and 'gsutil' commands.");
+            }
+
+            if (azureExists)
+            {
+                Console.WriteLine("[+] AZURE CLI exists in the current user's PATH. You should be able to use 'az' commands.");
+            }
+
+            Console.Write(Environment.NewLine);
+
+            List<string> allUsers = GetUsers();
             foreach (var user in allUsers)
             {
                 // Credential and config file locations in $HOME on Windows
@@ -96,9 +142,9 @@ namespace SharpCloud
                 Console.WriteLine(Environment.NewLine + "[+] Checking for Google Compute SDK files...");
                 CheckFile(computeCredsDb);
                 CheckFile(computeAccessTokensDb);
-                if (File.Exists(computeLegacyCreds))
+                if (Directory.Exists(computeLegacyCreds))
                 {
-                    string[] legacyCreds = Directory.GetFiles(computeLegacyCreds, "*.json", SearchOption.AllDirectories);
+                    string[] legacyCreds = Directory.GetFiles(computeLegacyCreds, "*", SearchOption.AllDirectories);
                     foreach (var file in legacyCreds)
                     {
                         CheckFile(file);
